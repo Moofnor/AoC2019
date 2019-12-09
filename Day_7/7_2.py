@@ -1,16 +1,14 @@
 # Advent of Code 2019
-# Day 7 - Part 1
+# Day 7 - Part 2
 # Hessel Prins
 import numpy as np
 import copy
 from itertools import permutations
 
-def processparam(code, index, intcode, inputcode):
+def processparam(index, intcode, inputcode):
     output = 99999
     nextinput = False
-    char = str(code)[::-1]
-    while len(char) < 5:
-        char += '0'
+    char = returnCode(intcode[index])
     opcode = int(char[:2])
     if opcode <= 20:
         # 3 inputs
@@ -37,7 +35,6 @@ def processparam(code, index, intcode, inputcode):
                 inputs.append(intcode[index + (i+1)])
         if opcode == 30:
             intcode[inputs[0]] = inputcode
-            nextinput = True
         elif opcode == 40:
             output = intcode[inputs[0]]
         else:
@@ -85,24 +82,45 @@ def processparam(code, index, intcode, inputcode):
         else:
             print('error: unknown opcode <= 80: ', opcode)
         nextindex = index + 4
-    else:
+    elif opcode == 99:
         nextindex = 99999
+        return nextindex, nextinput, output
+    else:
+        print('Error: unknown opcode')
+    if int(returnCode(intcode[nextindex])[:2]) == 30:
+        nextinput = True
     return nextindex, nextinput, output
 
-def runAmp(origintcode, paramInputs):
-    paramOutputs = []
-    for x, inp in enumerate(paramInputs[1]):
-            intcode = copy.deepcopy(origintcode)
-            inputcode = paramInputs[0]
-            nextindex = 0
-            while nextindex != 99999:
-                nextindex, nextinput, paramOutput = processparam(intcode[nextindex], nextindex, intcode, inputcode)
-                if nextinput:
-                    inputcode = inp
-                if paramOutput != 99999:
-                    subOutput = paramOutput
-            paramOutputs.append(subOutput)
-    return paramOutputs
+def returnCode(opcode):
+    char = str(opcode)[::-1]
+    while len(char) < 5:
+        char += '0'
+    return char
+
+class amplifier:
+    def __init__(self, name, intcode, phase):
+        self.name = name
+        self.intcode = intcode
+        self.phase = phase
+        self.index = 0
+        self.waiting = False
+        self.finished = False
+        self.input = []
+        self.output = []
+        while not self.waiting and not self.finished:
+            self.index, self.waiting, paramOutput = processparam(self.index, self.intcode, self.phase)
+            if paramOutput != 99999:
+                self.output = paramOutput
+            if self.index == 99999:
+                self.finished = True
+    def runStep(self):
+        self.waiting = False
+        while not self.waiting and self.index != 99999:
+            self.index, self.waiting, paramOutput = processparam(self.index, self.intcode, self.input)
+            if paramOutput != 99999:
+                self.output = paramOutput
+            if self.index == 99999:
+                self.finished = True
 
 day = 7
 
@@ -110,15 +128,23 @@ origintcode = np.genfromtxt('./Day_'+ str(day) + '/input.txt', delimiter=',').as
 
 finalOutput = []
 
-for inputOption in permutations(range(5), 5):
-    paramOutputs = [0]
+for inputOption in permutations(range(5, 10), 5):
+    steps = 0
+    amps = {}
     for amp in range(0,5):
-        paramInputs = [inputOption[amp], paramOutputs]
-        paramOutputs = runAmp(origintcode, paramInputs)
-    finalOutput.append(max(paramOutputs))
+        amps[amp] = amplifier(str(amp), copy.deepcopy(origintcode), inputOption[amp])
+    amps[0].input = 0
+    i = 0
+    while not amps[4].finished:
+        amp = i % 5
+        amps[amp].runStep()
+        amps[(i + 1) % 5].input = amps[amp].output
+        i += 1
+    finalOutput.append(amps[4].output)
 
-print(finalOutput)
 print(max(finalOutput))
 
+
+    
 
 
